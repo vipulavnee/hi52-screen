@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: hi52-screen
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+    # No ZERODHA_* keys anywhere, by design. This app reads Kite's PUBLIC instrument dump and
+    # Yahoo prices only, so there is no token to expire and nothing account-specific on a public
+    # URL - it shows a market screen, not a portfolio. That is why it needs no password gate,
+    # unlike the main dashboard.
+    #
+    # Free plan has no disk, so the cache file is lost on every spin-down and the first request
+    # after an idle period triggers a fresh ~2 minute scan. The page shows scan progress and
+    # refreshes itself. Add a disk and STATE_DIR if that wait becomes annoying.

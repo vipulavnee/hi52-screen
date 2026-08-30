@@ -1,0 +1,10 @@
+{
+  "name": "hi52-screen",
+  "version": "1.0.0",
+  "description": "52-week-high share screen. No Kite token: universe from Kite's public instrument dump, prices from Yahoo.",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "^4.18.2", "axios": "^1.6.0" },
+  "engines": { "node": ">=18" },
+  "private": true
+}
