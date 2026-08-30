@@ -47,7 +47,26 @@ you — the opposite of the options version of this idea.
   relative-strength screen. Whether the excess survives a rising market is untested.
 - Options data is not available without a broker token, so nothing here prices premiums.
 
-## Deploying
+## How it is published
+
+The dashboard is a **static page**.  reads  and nothing else -
+no server, no API, no login. GitHub Pages serves it, so it loads in well under a second and there
+is no container to wake up.
+
+A browser cannot call Yahoo directly (CORS), which was the only reason a server ever existed here.
+Moving that fetch into a scheduled build removed the need for one.
+
+    node build.js       # fetches Yahoo, writes docs/data.json (~70s, 257 KB)
+
+ runs that at 11:00 UTC (16:30 IST) on weekdays and commits the
+result. **Refresh manually** from the Actions tab -> Update screen data -> Run workflow. The build
+exits non-zero if it produced no rows, so a Yahoo outage fails loudly rather than quietly
+committing an empty file over good data.
+
+ is still here for local use and serves the same  folder, with an extra
+ for a live refetch. It is optional; the published site never touches it.
+
+## Deploying to Render (optional)
 
 `render.yaml` is ready for Render's free plan. No environment variables, no secrets.
 

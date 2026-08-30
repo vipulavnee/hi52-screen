@@ -111,8 +111,11 @@ app.get('/api/portfolio', (req, res) => {
   res.json({ available: true, budget, since, thrustOnly, asOf: state.asOf, ...p });
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
-app.get('/', (_q, r) => r.sendFile(path.join(__dirname, 'public', 'index.html')));
+// Serves the SAME docs/ folder that GitHub Pages publishes, so there is one dashboard file
+// rather than two copies drifting apart. The page reads docs/data.json and never calls the
+// /api routes below - those remain only for triggering a live rescan locally.
+app.use(express.static(path.join(__dirname, 'docs')));
+app.get('/', (_q, r) => r.sendFile(path.join(__dirname, 'docs', 'index.html')));
 
 app.listen(PORT, () => {
   console.log(`52-week-high screen on http://localhost:${PORT}  (no Kite token required)`);

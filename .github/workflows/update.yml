@@ -1,0 +1,50 @@
+name: Update screen data
+
+on:
+  schedule:
+    # 11:00 UTC = 16:30 IST, an hour after the NSE close, Monday to Friday.
+    # GitHub's scheduled runners are best-effort and can lag by several minutes under load;
+    # that is fine here, the data only has to be right by evening.
+    - cron: '0 11 * * 1-5'
+  workflow_dispatch:        # the manual "Refresh" button, run from the Actions tab
+  push:
+    branches: [main]
+    paths: ['build.js', 'screen.js', 'history.js', 'yahoo.js', 'universe.js']
+
+# Needed to push the regenerated data.json back to the repo.
+permissions:
+  contents: write
+
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm ci --omit=dev
+
+      # build.js exits non-zero if it produced no rows, so a Yahoo outage fails the run loudly
+      # instead of quietly committing an empty file over good data.
+      - name: Build data.json
+        run: node build.js
+
+      - name: Commit if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/data.json
+          # Nothing to do on a holiday, when the session has not moved.
+          if git diff --staged --quiet; then
+            echo "no change - market closed or data identical"
+            exit 0
+          fi
+          git commit -m "data: $(node -e "console.log(require('./docs/data.json').asOf)")"
+          git push
