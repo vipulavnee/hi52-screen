@@ -49,7 +49,7 @@ you — the opposite of the options version of this idea.
 
 ## How it is published
 
-The dashboard is a **static page**.  reads  and nothing else -
+The dashboard is a **static page**. `docs/index.html` reads `docs/data.json` and nothing else —
 no server, no API, no login. GitHub Pages serves it, so it loads in well under a second and there
 is no container to wake up.
 
@@ -58,13 +58,13 @@ Moving that fetch into a scheduled build removed the need for one.
 
     node build.js       # fetches Yahoo, writes docs/data.json (~70s, 257 KB)
 
- runs that at 11:00 UTC (16:30 IST) on weekdays and commits the
-result. **Refresh manually** from the Actions tab -> Update screen data -> Run workflow. The build
+`.github/workflows/update.yml` runs that at 11:00 UTC (16:30 IST) on weekdays and commits the
+result. **Refresh manually** from the Actions tab → Update screen data → Run workflow. The build
 exits non-zero if it produced no rows, so a Yahoo outage fails loudly rather than quietly
 committing an empty file over good data.
 
- is still here for local use and serves the same  folder, with an extra
- for a live refetch. It is optional; the published site never touches it.
+`server.js` is still here for local use and serves the same `docs/` folder, with an extra
+`/api/rescan` for a live refetch. It is optional; the published site never touches it.
 
 ## Deploying to Render (optional)
 
