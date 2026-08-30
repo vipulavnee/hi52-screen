@@ -92,7 +92,7 @@ fetch('data.json?v='+Date.now()).then(function(r){return r.json();}).then(functi
   D=j; D.rows.forEach(function(r){PX[r.s]=r.c;});
   var age=Math.round((Date.now()-new Date(j.generatedAt).getTime())/36e5);
   document.getElementById('sub').innerHTML='Session <b>'+j.asOf+'</b> &middot; '+j.rows.length+' stocks &middot; '+
-    'updated '+(age<1?'less than an hour':age+' hour'+(age===1?'':'s'))+' ago &middot; no server, no login';
+    'updated '+(age<1?'under an hour':age+'h')+' ago';
   render();
 }).catch(function(e){
   document.getElementById('sub').textContent='Could not load data.json - '+e.message;
