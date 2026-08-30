@@ -148,7 +148,7 @@ function render(){
     if(typeof A==='string')return SORT.dir*A.localeCompare(B);
     return SORT.dir*(((A==null?-1e9:A))-((B==null?-1e9:B)));});
   document.getElementById('head').innerHTML=cols([['Stock','s'],['Off low','fl'],['50>200','gd'],['vs 200DMA','a200'],
-    ['Price','c'],['Day','ch'],['63d','r63'],['Off high','dh'],['Vol x','vx'],['Buy','c'],['Cost','c']]);
+    ['Price','c'],['Day','ch'],['63d','r63'],['Buy call (5% ITM)','kk'],['Expiry','ke'],['Lot','kl']]);
   var hi=D.rows.filter(function(x){return x.hi;}).length,th=D.rows.filter(function(x){return x.th;}).length;
   var tot=rows.reduce(function(s,x){var q=Math.floor(b/x.c);return s+(q>=1?q*x.c:0);},0);
   document.getElementById('cards').innerHTML=card(hi,'new 52-week highs')+card(th,'thrust (vol &gt; 2.5x)')+
@@ -162,10 +162,10 @@ function render(){
       '<td>'+(x.gd===1?'<span class="tag t-high">yes</span>':'<span class="no">no</span>')+'</td>'+
       '<td class="'+sgn(x.a200)+'">'+n2(x.a200)+'%</td>'+
       '<td>'+n2(x.c)+'</td><td class="'+sgn(x.ch)+'">'+n2(x.ch)+'%</td>'+
-      '<td class="'+sgn(x.r63)+'">'+n2(x.r63)+'%</td><td>'+n2(x.dh)+'%</td>'+
-      '<td>'+(x.vx==null?'-':x.vx.toFixed(1)+'x')+'</td>'+
-      '<td>'+(q>=1?q:'<span class="no">-</span>')+'</td>'+
-      '<td>'+(q>=1?'&#8377;'+n0(q*x.c):'<span class="no">&#8377;'+n0(x.c)+'</span>')+'</td></tr>';
+      '<td class="'+sgn(x.r63)+'">'+n2(x.r63)+'%</td>'+
+      '<td>'+(x.k?('<b>'+x.k.s+'</b> CE <span class="no">('+(x.k.i>=0?'+':'')+n2(x.k.i)+'% ITM)</span>'):'<span class="no">no chain</span>')+'</td>'+
+      '<td>'+(x.k?x.k.e+' <span class="no">'+x.k.d+'d</span>':'-')+'</td>'+
+      '<td>'+(x.k?n0(x.k.l):'-')+'</td></tr>';
   }).join('')||'<tr><td colspan="11" class="no" style="padding:20px">Nothing matches.</td></tr>';
   document.getElementById('note').innerHTML=NOTE_SCREEN; wire();
 }
@@ -224,6 +224,12 @@ var NOTE_SCREEN='<b>Click any row</b> to see every date that stock hit a 52-week
 'What did <b>not</b> survive: at a 52-week high +3.49 &rarr; <b>&minus;0.08</b>; volume &gt; 2.5x roughly zero throughout; MACD above signal &minus;0.42 &rarr; &minus;0.28 (t &minus;2.58, genuinely negative). The 52-week high and the thrust tag are kept as <b>labels</b>, not as the selector.<br><br>'+
 '<b>An earlier version of this page claimed +9.47% excess.</b> That came from applying today&rsquo;s F&amp;O list to the past, which deletes every name dropped since - and names get dropped after they do badly. Fixing that alone took the universe&rsquo;s own baseline from +7.54% to <b>+0.53%</b>.<br><br>'+
 '<b>Be honest about the size.</b> Nothing here clears significance on F&amp;O names: best t is 1.87, and the top setup was positive in only <b>2 of 5</b> out-of-sample years. On the full NSE universe the same setup gave +2.76 out-of-sample at t 3.36 - restricting to F&amp;O costs more than half the edge. This is a slight tilt, not an edge.<br><br>'+
+'<b>Which strike.</b> Tested on 41,815 point-in-time signals, calls held to expiry:<br>'+
+'&nbsp;&nbsp;<b>5% ITM</b> &mdash; 44% win, <b>31% went to zero</b>, median &minus;23%, 25% chance of a double<br>'+
+'&nbsp;&nbsp;ATM &mdash; 39% win, 45% to zero, median &minus;68%<br>'+
+'&nbsp;&nbsp;5% OTM &mdash; 32% win, 57% to zero &nbsp;&middot;&nbsp; 10% OTM &mdash; 25% win, <b>68% to zero</b><br>'+
+'5% ITM keeps the same one-in-four shot at a double while cutting wipeouts by a third. Far-OTM strikes show higher MEAN returns, but options here are priced at FLAT volatility and real markets charge more for OTM calls (skew), so those means are overstated - win rate and wipeout rate are not affected by that bias and both point the same way. Next month, not the near one: 45 DTE beat 20 DTE at every strike.<br><br>'+
+'<b>The premium is not shown, and cannot be.</b> Strikes, expiries and lot sizes come from Kite public instrument dump, but option PRICES need a broker login. The Lot column shows what one lot controls; what it costs, you check in Kite.<br><br>'+
 '<b>Sizing is equal rupees, not one share each.</b> Prices span &#8377;10 to &#8377;48,895, so a fixed share count would let whichever dear stock happened to signal dominate the book.<br><br>'+
 '<b>Data.</b> Yahoo prices, verified identical to Kite across 5 stocks x 9 sessions, but the endpoint is undocumented and can break without notice. A <span class="tag t-ca">split?</span> tag means adjusted and unadjusted closes disagree - check that one by hand. 44 delisted F&amp;O names had no price history at all, so even the corrected baseline is flattered.';
 

@@ -10,9 +10,9 @@
 // In CI:        see .github/workflows/update.yml
 const fs = require('fs');
 const path = require('path');
-const { fnoUnderlyings, toYahoo } = require('./universe');
+const { fnoUnderlyings, toYahoo, optionChain } = require('./universe');
 const { scan } = require('./yahoo');
-const { analyse } = require('./screen');
+const { analyse, pickStrike } = require('./screen');
 const { highDates } = require('./history');
 
 const OUT = path.join(__dirname, 'docs', 'data.json');
@@ -21,6 +21,8 @@ const r2 = v => (v == null || !isFinite(v)) ? null : Math.round(v * 100) / 100;
 (async () => {
   const t0 = Date.now();
   const syms = await fnoUnderlyings();
+  const chains = await optionChain();
+  console.log('option chains: ' + Object.keys(chains).length);
   console.log(`universe: ${syms.length} symbols`);
 
   const { data, failed } = await scan(syms, toYahoo, (i, n) => {
@@ -40,6 +42,8 @@ const r2 = v => (v == null || !isFinite(v)) ? null : Math.round(v * 100) / 100;
       r21: r2(a.ret21), r63: r2(a.ret63),
       hi: a.isHigh ? 1 : 0, th: a.isThrust ? 1 : 0,
       dsh: a.daysSinceHigh, h52: r2(a.high52),
+      k: (function(){ var p = pickStrike(chains[sym], a.close, a.date);
+        return p ? { s: p.strike, sy: p.symbol, e: p.expiry, d: p.dte, l: p.lot, i: r2(p.itmPct) } : null; })(),
       // the two that survived the out-of-sample test
       gd: a.golden ? 1 : 0, a200: r2(a.aboveMA200Pct)
     });

@@ -76,4 +76,42 @@ function sizePosition(price, budgetRs) {
   return { qty, cost: qty * price, affordable: qty >= 1, shortBy: qty >= 1 ? 0 : price - budgetRs };
 }
 
-module.exports = { analyse, sizePosition, LOOKBACK };
+// Which call to buy, if you are buying calls.
+//
+// Tested on 41,815 point-in-time signals (off-low top20 + golden cross), held to expiry:
+//   strike    win%   went to zero   median    >100%
+//   5% ITM     44%       31%         -23%      25%
+//   ATM        39%       45%         -68%      25%
+//   5% OTM     32%       57%        -100%      23%
+//   10% OTM    25%       68%        -100%      20%
+// 5% ITM keeps the same one-in-four shot at a double while cutting the wipeout rate by a third.
+// The far-OTM strikes show higher MEAN returns, but that is a modelling artefact: options were
+// priced at flat volatility and real markets charge more for OTM calls (skew), so those means are
+// overstated by an unknown amount. Win rate and wipeout rate are unaffected by that bias, and both
+// say the same thing.
+//
+// Next month, not the near one: 45-DTE beat 20-DTE on every strike tested.
+const ITM_PCT = 5;
+
+function pickStrike(chain, spot, todayIso) {
+  if (!chain || !spot || !(spot > 0)) return null;
+  const expiries = Object.keys(chain.byExpiry).filter(e => e > todayIso).sort();
+  if (!expiries.length) return null;
+  // "Next month" = skip anything expiring within a fortnight; that is the near-month contract
+  // whose theta is the problem, not the horizon that tested well.
+  const soon = new Date(todayIso); soon.setDate(soon.getDate() + 14);
+  const cutoff = soon.toISOString().slice(0, 10);
+  const expiry = expiries.find(e => e >= cutoff) || expiries[expiries.length - 1];
+  const ladder = chain.byExpiry[expiry];
+  if (!ladder || !ladder.length) return null;
+  const target = spot * (1 - ITM_PCT / 100);
+  const pick = ladder.reduce((b, x) => Math.abs(x.k - target) < Math.abs(b.k - target) ? x : b);
+  const dte = Math.round((new Date(expiry) - new Date(todayIso)) / 86400000);
+  return {
+    strike: pick.k, symbol: pick.sym, expiry, dte, lot: chain.lot,
+    itmPct: (spot / pick.k - 1) * 100,
+    notional: pick.k * chain.lot          // what one lot controls; the PREMIUM needs a broker login
+  };
+}
+
+module.exports = { analyse, sizePosition, pickStrike, LOOKBACK, ITM_PCT };
