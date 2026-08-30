@@ -55,9 +55,10 @@ tr:hover td{background:#1c202a}
   <span id="screenCtl">
     <label>Show</label>
     <select id="filter">
-      <option value="thrust">Thrust only (vol &gt; 2.5x)</option>
-      <option value="high" selected>New 52-week highs</option>
-      <option value="near">Within 2% of high</option>
+      <option value="tested" selected>Tested setup: golden cross + top 20% off low</option>
+      <option value="golden">Golden cross only (50DMA &gt; 200DMA)</option>
+      <option value="high">New 52-week highs</option>
+      <option value="thrust">Thrust (vol &gt; 2.5x)</option>
       <option value="all">Everything</option>
     </select>
     <label><input type="checkbox" id="afford" style="width:auto"> Affordable only</label>
@@ -79,7 +80,7 @@ tr:hover td{background:#1c202a}
 </div></div>
 
 <script>
-var D=null,VIEW='screen',SORT={k:'r63',dir:-1},PX={};
+var D=null,VIEW='screen',SORT={k:'fl',dir:-1},PX={};
 function n0(v){return v==null?'-':Math.round(v).toLocaleString('en-IN');}
 function n2(v){return v==null?'-':v.toFixed(2);}
 function sgn(v){return v==null?'no':v>0?'up':v<0?'dn':'no';}
@@ -130,13 +131,24 @@ function render(){
   if(!D)return;
   if(VIEW==='portfolio')return renderPf();
   var f=document.getElementById('filter').value,aff=document.getElementById('afford').checked,b=budget();
-  var rows=D.rows.filter(function(x){return f==='thrust'?x.th:f==='high'?x.hi:f==='near'?x.dh<=2:true;});
+  var rows;
+  if(f==='tested'){
+    // The one configuration that held up out of sample: gate on the golden cross, then take the
+    // top fifth by distance off the 52-week low. Ranked against the whole universe of the day,
+    // not against the gated subset, so the cut means the same thing as it did in the backtest.
+    var g=D.rows.filter(function(x){return x.gd===1&&x.fl!=null;}).sort(function(a,z){return z.fl-a.fl;});
+    rows=g.slice(0,Math.max(1,Math.floor(D.rows.length*0.2)));
+  }
+  else if(f==='golden') rows=D.rows.filter(function(x){return x.gd===1;});
+  else if(f==='thrust') rows=D.rows.filter(function(x){return x.th;});
+  else if(f==='high')   rows=D.rows.filter(function(x){return x.hi;});
+  else rows=D.rows.slice();
   if(aff)rows=rows.filter(function(x){return x.c<=b;});
   rows=rows.slice().sort(function(a,z){var A=a[SORT.k],B=z[SORT.k];
     if(typeof A==='string')return SORT.dir*A.localeCompare(B);
     return SORT.dir*(((A==null?-1e9:A))-((B==null?-1e9:B)));});
-  document.getElementById('head').innerHTML=cols([['Stock','s'],['Price','c'],['Day','ch'],['Vol x','vx'],
-    ['Off high','dh'],['21d','r21'],['63d','r63'],['Off low','fl'],['Last high','dsh'],['Buy','c'],['Cost','c']]);
+  document.getElementById('head').innerHTML=cols([['Stock','s'],['Off low','fl'],['50>200','gd'],['vs 200DMA','a200'],
+    ['Price','c'],['Day','ch'],['63d','r63'],['Off high','dh'],['Vol x','vx'],['Buy','c'],['Cost','c']]);
   var hi=D.rows.filter(function(x){return x.hi;}).length,th=D.rows.filter(function(x){return x.th;}).length;
   var tot=rows.reduce(function(s,x){var q=Math.floor(b/x.c);return s+(q>=1?q*x.c:0);},0);
   document.getElementById('cards').innerHTML=card(hi,'new 52-week highs')+card(th,'thrust (vol &gt; 2.5x)')+
@@ -146,10 +158,12 @@ function render(){
     return '<tr data-sym="'+x.s+'"><td class="sym">'+x.s+
       (x.th?'<span class="tag t-thrust">thrust</span>':x.hi?'<span class="tag t-high">52w high</span>':'')+
       (x.ca?'<span class="tag t-ca">split?</span>':'')+'</td>'+
+      '<td class="up">'+n0(x.fl)+'%</td>'+
+      '<td>'+(x.gd===1?'<span class="tag t-high">yes</span>':'<span class="no">no</span>')+'</td>'+
+      '<td class="'+sgn(x.a200)+'">'+n2(x.a200)+'%</td>'+
       '<td>'+n2(x.c)+'</td><td class="'+sgn(x.ch)+'">'+n2(x.ch)+'%</td>'+
-      '<td>'+(x.vx==null?'-':x.vx.toFixed(1)+'x')+'</td><td>'+n2(x.dh)+'%</td>'+
-      '<td class="'+sgn(x.r21)+'">'+n2(x.r21)+'%</td><td class="'+sgn(x.r63)+'">'+n2(x.r63)+'%</td>'+
-      '<td>'+n0(x.fl)+'%</td><td>'+(x.dsh==null?'-':x.dsh+'d')+'</td>'+
+      '<td class="'+sgn(x.r63)+'">'+n2(x.r63)+'%</td><td>'+n2(x.dh)+'%</td>'+
+      '<td>'+(x.vx==null?'-':x.vx.toFixed(1)+'x')+'</td>'+
       '<td>'+(q>=1?q:'<span class="no">-</span>')+'</td>'+
       '<td>'+(q>=1?'&#8377;'+n0(q*x.c):'<span class="no">&#8377;'+n0(x.c)+'</span>')+'</td></tr>';
   }).join('')||'<tr><td colspan="11" class="no" style="padding:20px">Nothing matches.</td></tr>';
@@ -203,9 +217,15 @@ function wire(){
 }
 
 var NOTE_SCREEN='<b>Click any row</b> to see every date that stock hit a 52-week high.<br><br>'+
-'<b>Backtest, 210 F&amp;O names, Aug 2025 to Aug 2026 (2,461 signals).</b> Buying a 52-week high and holding 126 days returned <b>+3.30%</b> while Nifty fell <b>6.18%</b> - <b>+9.47% excess</b>, beating the index 66% of the time. Volume &gt; 2.5x lifted that to <b>+10.40%</b>, 67% hit rate.<br><br>'+
-'<b>Sizing is equal rupees, not one share each.</b> Signal prices span &#8377;10 to &#8377;48,895, so a fixed share count would let whichever dear stock happened to signal dominate the book.<br><br>'+
-'<b>Limits.</b> Prices are Yahoo, verified identical to Kite across 5 stocks x 9 sessions, but the endpoint is undocumented and can break without notice. A <span class="tag t-ca">split?</span> tag means adjusted and unadjusted closes disagree - a corporate action may be inventing a false breakout, so check by hand. One backtested year, in a falling market, is not proof of an edge.';
+'<b>Why this ranking.</b> Walk-forward over 10 years on F&amp;O names, using NSE&rsquo;s own monthly derivatives bhavcopy for <i>point-in-time</i> membership, ranked on 2017-2021 and then tested on 2022-2026:<br>'+
+'&nbsp;&nbsp;off-low top20 + golden cross &nbsp; +3.78 &rarr; <b>+1.20</b> &nbsp;(t 1.76)<br>'+
+'&nbsp;&nbsp;% off 52-week low &nbsp; +2.82 &rarr; +1.06<br>'+
+'&nbsp;&nbsp;golden cross alone &nbsp; +2.33 &rarr; +0.65<br>'+
+'What did <b>not</b> survive: at a 52-week high +3.49 &rarr; <b>&minus;0.08</b>; volume &gt; 2.5x roughly zero throughout; MACD above signal &minus;0.42 &rarr; &minus;0.28 (t &minus;2.58, genuinely negative). The 52-week high and the thrust tag are kept as <b>labels</b>, not as the selector.<br><br>'+
+'<b>An earlier version of this page claimed +9.47% excess.</b> That came from applying today&rsquo;s F&amp;O list to the past, which deletes every name dropped since - and names get dropped after they do badly. Fixing that alone took the universe&rsquo;s own baseline from +7.54% to <b>+0.53%</b>.<br><br>'+
+'<b>Be honest about the size.</b> Nothing here clears significance on F&amp;O names: best t is 1.87, and the top setup was positive in only <b>2 of 5</b> out-of-sample years. On the full NSE universe the same setup gave +2.76 out-of-sample at t 3.36 - restricting to F&amp;O costs more than half the edge. This is a slight tilt, not an edge.<br><br>'+
+'<b>Sizing is equal rupees, not one share each.</b> Prices span &#8377;10 to &#8377;48,895, so a fixed share count would let whichever dear stock happened to signal dominate the book.<br><br>'+
+'<b>Data.</b> Yahoo prices, verified identical to Kite across 5 stocks x 9 sessions, but the endpoint is undocumented and can break without notice. A <span class="tag t-ca">split?</span> tag means adjusted and unadjusted closes disagree - check that one by hand. 44 delisted F&amp;O names had no price history at all, so even the corrected baseline is flattered.';
 
 var NOTE_PF='<b>Paper only - nothing here was traded.</b> One position per stock, on its <b>first</b> 52-week high in the window, held to the latest session. Buying every repeat high would stack the same name a dozen times.<br><br>'+
 '<b>Fill:</b> a resting buy at <b>(previous 52-week high &minus; 1)</b>. <b>{GP}</b> stocks gapped clean over that level, so those are filled at the open and tagged <span class="tag t-gap">gapped</span> rather than crediting a fill the market never offered. <b>{SK}</b> signals cost more than one budget and were skipped, which quietly leaves out the expensive end of the market.<br><br>'+
@@ -218,7 +238,7 @@ document.querySelectorAll('.view').forEach(function(v){
     v.classList.add('on');VIEW=v.dataset.v;
     document.getElementById('screenCtl').style.display=VIEW==='screen'?'':'none';
     document.getElementById('pfCtl').style.display=VIEW==='portfolio'?'':'none';
-    SORT=VIEW==='portfolio'?{k:'pnlPct',dir:-1}:{k:'r63',dir:-1};render();};});
+    SORT=VIEW==='portfolio'?{k:'pnlPct',dir:-1}:{k:'fl',dir:-1};render();};});
 ['budget','filter','afford','since','pfThrust'].forEach(function(id){
   document.getElementById(id).onchange=render;});
 document.getElementById('ovcl').onclick=function(){document.getElementById('ov').classList.remove('on');};

@@ -1,10 +1,24 @@
 // The screen itself. Pure functions over candles - no network, so it is testable and cheap.
 //
-// Backtested on 210 F&O names, Aug 2025 - Aug 2026 (2,461 signals):
-//   plain 52w high, 126d hold : +3.30% vs Nifty -6.18%  = +9.47% excess, beat index 66%
-//   volume > 2.5x, 126d hold  : +4.49% vs Nifty -5.91%  = +10.40% excess, beat index 67%
-// Longer holds beat shorter ones, which is the opposite of the options result - shares do not
-// decay, so time is on your side rather than against it.
+// REBUILT 2026-08-31 after a proper walk-forward: 10 years, POINT-IN-TIME F&O membership from
+// NSE's own monthly derivatives bhavcopy, weekly sampling, ranked on 2017-2021 and tested on
+// 2022-2026. The earlier "+9.47% excess" claim came from applying today's F&O list to the past,
+// which deletes every name dropped since - and names get dropped after they do badly. Correcting
+// that alone took the universe's own baseline from +7.54% to +0.53%.
+//
+// What survived the out-of-sample half, F&O universe:
+//   off-low top 20% + golden cross  +3.78 in-sample  ->  +1.20 out    t 1.76
+//   % off 52-week low (top 20%)     +2.82            ->  +1.06        t 1.58
+//   golden cross alone              +2.33            ->  +0.65        t 1.87
+// What did NOT:
+//   at a 52-week high               +3.49            ->  -0.08
+//   volume > 2.5x                    ~0              ->   ~0
+//   MACD above signal               -0.42            ->  -0.28        t -2.58 (negative)
+//
+// So the 52-week high is kept as a TRIGGER and a label, not as the selector. Ranking is by
+// distance off the 52-week low, gated on the 50DMA being above the 200DMA. Nothing here clears
+// statistical significance on F&O names - best t is 1.87, and the top setup was positive in only
+// 2 of 5 out-of-sample years. Treat it as a slight tilt, not an edge.
 const LOOKBACK = 252;
 
 function analyse(candles) {
@@ -26,14 +40,24 @@ function analyse(candles) {
   }
 
   const isHigh = day.h >= high52;
+  const avg = n => candles.slice(i - n + 1, i + 1).reduce((s, c) => s + c.c, 0) / n;
+  const ma50 = candles.length > 50 ? avg(50) : null;
+  const ma200 = candles.length > 200 ? avg(200) : null;
   return {
     date: day.d, close: day.c, high: day.h, prevClose: prev.c,
     chgPct: prev.c > 0 ? (day.c / prev.c - 1) * 100 : null,
     high52, low52,
     distFromHighPct: (high52 - day.c) / high52 * 100,
+    // The ranking column. Best single survivor out of sample.
     fromLowPct: low52 > 0 ? (day.c / low52 - 1) * 100 : null,
+    ma50, ma200,
+    // The gate. Weak on its own but the only thing positive in 3 of 5 out-of-sample years, and it
+    // is what lifts the off-low rank from +1.06 to +1.20.
+    golden: (ma50 != null && ma200 != null) ? ma50 > ma200 : null,
+    aboveMA200Pct: ma200 ? (day.c / ma200 - 1) * 100 : null,
     volX, isHigh,
-    // The thrust filter that carried the extra edge in the backtest.
+    // Kept as a LABEL only. Volume >2.5x tested flat, and 52-week-high selection went to -0.08
+    // out of sample, so neither drives what the screen shows any more.
     isThrust: isHigh && volX !== null && volX > 2.5,
     daysSinceHigh,
     closePos: (day.h - day.l) > 0 ? (day.c - day.l) / (day.h - day.l) : 0.5,

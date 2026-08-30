@@ -39,7 +39,9 @@ const r2 = v => (v == null || !isFinite(v)) ? null : Math.round(v * 100) / 100;
       dh: r2(a.distFromHighPct), fl: r2(a.fromLowPct),
       r21: r2(a.ret21), r63: r2(a.ret63),
       hi: a.isHigh ? 1 : 0, th: a.isThrust ? 1 : 0,
-      dsh: a.daysSinceHigh, h52: r2(a.high52)
+      dsh: a.daysSinceHigh, h52: r2(a.high52),
+      // the two that survived the out-of-sample test
+      gd: a.golden ? 1 : 0, a200: r2(a.aboveMA200Pct)
     });
 
     // Peak and trough of the closes AFTER each 52-week high, precomputed so the page can build a
@@ -63,7 +65,9 @@ const r2 = v => (v == null || !isFinite(v)) ? null : Math.round(v * 100) / 100;
     });
   }
 
-  rows.sort((a, b) => (b.th - a.th) || (b.hi - a.hi) || ((b.r63 ?? -99) - (a.r63 ?? -99)));
+  // Default order is the tested setup: golden cross first, then furthest off the 52-week low.
+  // It used to lead on thrust and 52-week-high, both of which tested flat-to-negative out of sample.
+  rows.sort((a, b) => (b.gd - a.gd) || ((b.fl ?? -99) - (a.fl ?? -99)));
   const asOf = rows.length ? analyse(data[rows[0].s].candles).date : null;
 
   const payload = { asOf, generatedAt: new Date().toISOString(), failed, rows, hist };
