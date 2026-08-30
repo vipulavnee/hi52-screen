@@ -7,15 +7,20 @@
 :root{--bg:#0f1115;--card:#171a21;--line:#262b36;--tx:#e6e9ef;--dim:#8b93a7;--up:#2ea56b;--dn:#e05252;--hot:#e8a33d;--acc:#4a8fe7}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.5 -apple-system,Segoe UI,Roboto,sans-serif}
-.wrap{max-width:1280px;margin:0 auto;padding:20px}
+.wrap{max-width:1320px;margin:0 auto;padding:20px}
 h1{font-size:20px;margin:0 0 2px}
-.sub{color:var(--dim);font-size:13px;margin-bottom:16px}
+.sub{color:var(--dim);font-size:13px;margin-bottom:14px}
+.views{display:flex;gap:6px;margin-bottom:14px}
+.view{padding:7px 16px;border:1px solid var(--line);border-radius:8px;cursor:pointer;color:var(--dim);font-size:13px;background:var(--card)}
+.view.on{background:var(--acc);border-color:var(--acc);color:#fff}
 .bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px}
 label{color:var(--dim);font-size:12px}
 input,select{background:#0d1016;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 9px;font-size:13px}
 button{background:var(--acc);color:#fff;border:0;border-radius:6px;padding:7px 14px;font-size:13px;cursor:pointer}
 button.ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+button:disabled{opacity:.5;cursor:not-allowed}
+.spacer{flex:1}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:10px;margin-bottom:14px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px}
 .card .n{font-size:22px;font-weight:600}
 .card .l{color:var(--dim);font-size:12px}
@@ -24,6 +29,7 @@ table{border-collapse:collapse;width:100%;min-width:940px}
 th{position:sticky;top:0;background:#1b1f28;color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.4px;text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);cursor:pointer;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 td{padding:9px 10px;border-bottom:1px solid #1e222b;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+tbody tr{cursor:pointer}
 tr:hover td{background:#1c202a}
 .sym{font-weight:600}
 .up{color:var(--up)}.dn{color:var(--dn)}
@@ -31,122 +37,225 @@ tr:hover td{background:#1c202a}
 .t-thrust{background:rgba(232,163,61,.16);color:var(--hot);border:1px solid rgba(232,163,61,.4)}
 .t-high{background:rgba(46,165,107,.14);color:var(--up);border:1px solid rgba(46,165,107,.35)}
 .t-ca{background:rgba(224,82,82,.14);color:var(--dn);border:1px solid rgba(224,82,82,.35)}
+.t-gap{background:rgba(139,147,167,.16);color:var(--dim);border:1px solid rgba(139,147,167,.35)}
 .no{color:var(--dim)}
 .note{color:var(--dim);font-size:12px;margin-top:14px;line-height:1.6}
 .busy{background:rgba(74,143,231,.1);border:1px solid rgba(74,143,231,.35);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px}
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.66);display:none;align-items:center;justify-content:center;padding:20px;z-index:9}
+.ov.on{display:flex}
+.dlg{background:var(--card);border:1px solid var(--line);border-radius:12px;max-width:640px;width:100%;max-height:82vh;overflow:auto;padding:18px}
+.dlg h2{margin:0 0 4px;font-size:17px}
+.dlg .cl{float:right;cursor:pointer;color:var(--dim);font-size:20px;line-height:1}
 </style></head><body><div class="wrap">
 <h1>52-Week High Screen</h1>
 <div class="sub" id="sub">loading...</div>
 <div id="busy"></div>
+
+<div class="views">
+  <div class="view on" data-v="screen">Screen</div>
+  <div class="view" data-v="portfolio">Paper Portfolio</div>
+</div>
+
 <div class="bar">
-  <label>Budget per position &#8377;</label><input id="budget" type="number" value="2000" step="500" style="width:110px">
-  <label>Show</label>
-  <select id="filter">
-    <option value="thrust">Thrust only (volume &gt; 2.5x)</option>
-    <option value="high" selected>New 52-week highs</option>
-    <option value="near">Within 2% of high</option>
-    <option value="all">Everything</option>
-  </select>
-  <label><input type="checkbox" id="afford" style="width:auto"> Affordable only</label>
+  <label>Budget per position &#8377;</label><input id="budget" type="number" value="2000" step="500" style="width:104px">
+  <span id="screenCtl">
+    <label>Show</label>
+    <select id="filter">
+      <option value="thrust">Thrust only (vol &gt; 2.5x)</option>
+      <option value="high" selected>New 52-week highs</option>
+      <option value="near">Within 2% of high</option>
+      <option value="all">Everything</option>
+    </select>
+    <label><input type="checkbox" id="afford" style="width:auto"> Affordable only</label>
+  </span>
+  <span id="pfCtl" style="display:none">
+    <label>Buy signals since</label><input id="since" type="date" value="2026-06-01">
+    <label><input type="checkbox" id="pfThrust" style="width:auto"> Thrust signals only</label>
+  </span>
   <button id="apply">Apply</button>
-  <button class="ghost" id="rescan">Rescan</button>
+  <div class="spacer"></div>
+  <button class="ghost" id="rescan">&#8635; Refresh data</button>
 </div>
+
 <div class="cards" id="cards"></div>
-<div class="tw"><table>
-<thead><tr>
-<th data-k="symbol">Stock</th><th data-k="close">Price</th><th data-k="chgPct">Day</th>
-<th data-k="volX">Vol x</th><th data-k="distFromHighPct">Off high</th><th data-k="ret21">21d</th>
-<th data-k="ret63">63d</th><th data-k="fromLowPct">Off low</th><th data-k="daysSinceHigh">Last high</th>
-<th data-k="qty">Buy</th><th data-k="cost">Cost</th>
-</tr></thead><tbody id="body"></tbody></table></div>
-<div class="note">
-<b>Backtest, 210 F&amp;O names, Aug 2025 to Aug 2026 (2,461 signals).</b>
-Buying a 52-week high and holding 126 days returned <b>+3.30%</b> while Nifty fell <b>6.18%</b> &mdash; <b>+9.47% excess</b>, beating the index 66% of the time.
-Filtering for volume &gt; 2.5x improved that to <b>+10.40% excess</b>, 67% hit rate, and cut signals from 2,461 to 315 a year.
-Longer holds beat shorter ones &mdash; shares do not decay, so time works for you here rather than against you.
-<br><br>
-<b>Sizing.</b> Equal rupees, not equal shares. Signal prices span &#8377;10 to &#8377;48,895 &mdash; a 4,904x spread &mdash; so &quot;1 share each&quot; would let whichever dear stock happens to signal dominate the book for reasons unrelated to the signal.
-<br><br>
-<b>Limits.</b> Prices are Yahoo, verified identical to Kite across 5 stocks and 9 sessions, but the endpoint is undocumented and can break without notice.
-A <span class="tag t-ca">split?</span> tag means adjusted and unadjusted closes diverge &mdash; a corporate action may distort that stock&#39;s 52-week high, so check it by hand.
-One backtested year is not proof of an edge.
+<div class="tw"><table><thead id="head"></thead><tbody id="body"></tbody></table></div>
+
+<div class="note" id="note"></div>
 </div>
-</div>
+
+<div class="ov" id="ov"><div class="dlg">
+  <span class="cl" id="ovcl">&times;</span>
+  <h2 id="ovt"></h2>
+  <div class="sub" id="ovs"></div>
+  <div id="ovb"></div>
+</div></div>
+
 <script>
-var DATA=[],SORT={k:'ret63',dir:-1};
+var DATA=[],PF=null,VIEW='screen',SORT={k:'ret63',dir:-1};
 function n0(v){return v==null?'-':Math.round(v).toLocaleString('en-IN');}
 function n2(v){return v==null?'-':v.toFixed(2);}
 function sgn(v){return v==null?'no':v>0?'up':v<0?'dn':'no';}
+function pct(v){return v==null?'-':(v>0?'+':'')+v.toFixed(1)+'%';}
 
 async function load(){
   var b=document.getElementById('budget').value||2000;
-  var r=await fetch('/api/screen?budget='+b);
-  var j=await r.json();
+  var r=await fetch('/api/screen?budget='+b),j=await r.json();
   DATA=j.rows||[];
-  document.getElementById('sub').textContent =
-    j.asOf ? ('Session '+j.asOf+' - '+DATA.length+' stocks scanned'+(j.failedCount?' - '+j.failedCount+' unavailable':'')+' - no Kite login needed')
-           : 'no data yet';
-  var busy=document.getElementById('busy');
+  document.getElementById('sub').textContent = j.asOf
+    ? ('Session '+j.asOf+' - '+DATA.length+' stocks'+(j.failedCount?' - '+j.failedCount+' unavailable':'')+' - no Kite login needed')
+    : 'no data yet';
+  var busy=document.getElementById('busy'),btn=document.getElementById('rescan');
   if(j.status==='scanning'){
     var p=j.progress||{done:0,total:0};
-    var mins=Math.max(1,Math.round((p.total-p.done)*0.35/60));
-    busy.innerHTML='<div class="busy">Scanning Yahoo... '+p.done+' / '+p.total+' - about '+mins+' min left. This page refreshes itself.</div>';
-    setTimeout(load,4000);
-  } else if(j.error){
-    busy.innerHTML='<div class="busy">Scan failed: '+j.error+'</div>';
-  } else { busy.innerHTML=''; }
-  render();
+    btn.disabled=true; btn.textContent='Refreshing...';
+    busy.innerHTML='<div class="busy">Fetching prices... '+p.done+' / '+p.total+
+      ' - about '+Math.max(1,Math.round((p.total-p.done)*0.35/60))+' min left. This page updates itself.</div>';
+    setTimeout(load,4000); return;
+  }
+  btn.disabled=false; btn.innerHTML='&#8635; Refresh data';
+  busy.innerHTML = j.error ? '<div class="busy">Refresh failed: '+j.error+'</div>' : '';
+  if(VIEW==='portfolio') await loadPf(); else render();
+}
+
+async function loadPf(){
+  var b=document.getElementById('budget').value||2000;
+  var since=document.getElementById('since').value;
+  var th=document.getElementById('pfThrust').checked?'1':'0';
+  var r=await fetch('/api/portfolio?budget='+b+'&since='+since+'&thrust='+th);
+  PF=await r.json(); render();
 }
 
 function subset(){
-  var f=document.getElementById('filter').value;
-  var aff=document.getElementById('afford').checked;
-  var r=DATA.filter(function(x){
-    return f==='thrust'?x.isThrust:f==='high'?x.isHigh:f==='near'?x.distFromHighPct<=2:true;});
+  var f=document.getElementById('filter').value,aff=document.getElementById('afford').checked;
+  var r=DATA.filter(function(x){return f==='thrust'?x.isThrust:f==='high'?x.isHigh:f==='near'?x.distFromHighPct<=2:true;});
   if(aff)r=r.filter(function(x){return x.size&&x.size.affordable;});
   return r;
 }
+function card(n,l){return '<div class="card"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';}
+function cols(list){return '<tr>'+list.map(function(c){return '<th data-k="'+c[1]+'">'+c[0]+'</th>';}).join('')+'</tr>';}
 
 function render(){
+  if(VIEW==='portfolio')return renderPf();
+  document.getElementById('head').innerHTML=cols([['Stock','symbol'],['Price','close'],['Day','chgPct'],
+    ['Vol x','volX'],['Off high','distFromHighPct'],['21d','ret21'],['63d','ret63'],['Off low','fromLowPct'],
+    ['Last high','daysSinceHigh'],['Buy','qty'],['Cost','cost']]);
   var rows=subset().slice().sort(function(a,b){
     var k=SORT.k;
     var A=k==='qty'?(a.size?a.size.qty:0):k==='cost'?(a.size?a.size.cost:0):a[k];
     var B=k==='qty'?(b.size?b.size.qty:0):k==='cost'?(b.size?b.size.cost:0):b[k];
     if(typeof A==='string')return SORT.dir*A.localeCompare(B);
-    return SORT.dir*(((A==null?-1e9:A))-((B==null?-1e9:B)));
-  });
-  var th=DATA.filter(function(x){return x.isThrust;}).length;
+    return SORT.dir*(((A==null?-1e9:A))-((B==null?-1e9:B)));});
   var hi=DATA.filter(function(x){return x.isHigh;}).length;
+  var th=DATA.filter(function(x){return x.isThrust;}).length;
   var cost=rows.reduce(function(s,x){return s+((x.size&&x.size.affordable)?x.size.cost:0);},0);
-  document.getElementById('cards').innerHTML=
-    card(hi,'new 52-week highs')+card(th,'thrust (vol &gt; 2.5x)')+
+  document.getElementById('cards').innerHTML=card(hi,'new 52-week highs')+card(th,'thrust (vol &gt; 2.5x)')+
     card(rows.length,'shown')+card('&#8377;'+n0(cost),'cost to buy all shown');
   document.getElementById('body').innerHTML=rows.map(function(x){
     var s=x.size||{};
-    return '<tr><td class="sym">'+x.symbol+
+    return '<tr data-sym="'+x.symbol+'"><td class="sym">'+x.symbol+
       (x.isThrust?'<span class="tag t-thrust">thrust</span>':x.isHigh?'<span class="tag t-high">52w high</span>':'')+
       (x.corporateAction?'<span class="tag t-ca">split?</span>':'')+'</td>'+
-      '<td>'+n2(x.close)+'</td>'+
-      '<td class="'+sgn(x.chgPct)+'">'+n2(x.chgPct)+'%</td>'+
-      '<td>'+(x.volX==null?'-':x.volX.toFixed(1)+'x')+'</td>'+
-      '<td>'+n2(x.distFromHighPct)+'%</td>'+
-      '<td class="'+sgn(x.ret21)+'">'+n2(x.ret21)+'%</td>'+
-      '<td class="'+sgn(x.ret63)+'">'+n2(x.ret63)+'%</td>'+
-      '<td>'+n0(x.fromLowPct)+'%</td>'+
-      '<td>'+(x.daysSinceHigh==null?'-':x.daysSinceHigh+'d')+'</td>'+
+      '<td>'+n2(x.close)+'</td><td class="'+sgn(x.chgPct)+'">'+n2(x.chgPct)+'%</td>'+
+      '<td>'+(x.volX==null?'-':x.volX.toFixed(1)+'x')+'</td><td>'+n2(x.distFromHighPct)+'%</td>'+
+      '<td class="'+sgn(x.ret21)+'">'+n2(x.ret21)+'%</td><td class="'+sgn(x.ret63)+'">'+n2(x.ret63)+'%</td>'+
+      '<td>'+n0(x.fromLowPct)+'%</td><td>'+(x.daysSinceHigh==null?'-':x.daysSinceHigh+'d')+'</td>'+
       '<td>'+(s.affordable?s.qty:'<span class="no">-</span>')+'</td>'+
       '<td>'+(s.affordable?'&#8377;'+n0(s.cost):'<span class="no">&#8377;'+n0(x.close)+'</span>')+'</td></tr>';
   }).join('')||'<tr><td colspan="11" class="no" style="padding:20px">Nothing matches.</td></tr>';
+  document.getElementById('note').innerHTML=NOTE_SCREEN;
+  wire();
 }
 
-function card(n,l){return '<div class="card"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';}
+function renderPf(){
+  if(!PF||!PF.available){
+    document.getElementById('cards').innerHTML='';
+    document.getElementById('head').innerHTML='';
+    document.getElementById('body').innerHTML='<tr><td class="no" style="padding:20px">'+((PF&&PF.note)||'loading')+'</td></tr>';
+    return;
+  }
+  var s=PF.summary;
+  document.getElementById('cards').innerHTML=
+    card(s.positions,'positions')+
+    card('&#8377;'+n0(s.cost),'invested')+
+    card('<span class="'+sgn(s.pnl)+'">&#8377;'+n0(s.pnl)+'</span>','profit / loss')+
+    card('<span class="'+sgn(s.pnlPct)+'">'+pct(s.pnlPct)+'</span>','return')+
+    card(s.winners+' / '+s.positions,'winners');
+  document.getElementById('head').innerHTML=cols([['Stock','symbol'],['Bought on','entryDate'],['Entry','entryPrice'],
+    ['Qty','qty'],['Cost','cost'],['Price now','price'],['Value','value'],['P&L','pnl'],['Return','pnlPct'],
+    ['Peak','peakPct'],['Worst','troughPct'],['Highs','hits']]);
+  var rows=PF.rows.filter(function(r){return !r.skipped;}).slice().sort(function(a,b){
+    var A=a[SORT.k],B=b[SORT.k];
+    if(typeof A==='string')return SORT.dir*A.localeCompare(B);
+    return SORT.dir*(((A==null?-1e9:A))-((B==null?-1e9:B)));});
+  document.getElementById('body').innerHTML=rows.map(function(r){
+    return '<tr data-sym="'+r.symbol+'"><td class="sym">'+r.symbol+
+      (r.thrust?'<span class="tag t-thrust">thrust</span>':'')+
+      (r.gapped?'<span class="tag t-gap">gapped</span>':'')+'</td>'+
+      '<td>'+r.entryDate+'</td><td>'+n2(r.entryPrice)+'</td><td>'+r.qty+'</td>'+
+      '<td>&#8377;'+n0(r.cost)+'</td><td>'+n2(r.price)+'</td><td>&#8377;'+n0(r.value)+'</td>'+
+      '<td class="'+sgn(r.pnl)+'">&#8377;'+n0(r.pnl)+'</td>'+
+      '<td class="'+sgn(r.pnlPct)+'">'+pct(r.pnlPct)+'</td>'+
+      '<td class="up">'+pct(r.peakPct)+'</td><td class="dn">'+pct(r.troughPct)+'</td>'+
+      '<td>'+r.hits+'</td></tr>';}).join('')||'<tr><td colspan="12" class="no" style="padding:20px">No signals in this window.</td></tr>';
+  document.getElementById('note').innerHTML=NOTE_PF.replace('{SK}',s.skipped);
+  wire();
+}
 
-document.querySelectorAll('th').forEach(function(t){
-  t.onclick=function(){var k=t.dataset.k;SORT.dir=SORT.k===k?-SORT.dir:-1;SORT.k=k;render();};});
-document.getElementById('apply').onclick=load;
+async function showHistory(sym){
+  var ov=document.getElementById('ov');
+  document.getElementById('ovt').textContent=sym+' - every 52-week high';
+  document.getElementById('ovs').textContent='loading...';
+  document.getElementById('ovb').innerHTML='';
+  ov.classList.add('on');
+  var r=await fetch('/api/history?symbol='+encodeURIComponent(sym)),j=await r.json();
+  if(!j.available){document.getElementById('ovs').textContent=j.note||'not available';return;}
+  var h=j.hits;
+  document.getElementById('ovs').textContent=h.length+' sessions at a 52-week high in the last 2 years'+
+    (h.length?' - most recent '+h[h.length-1].date:'');
+  document.getElementById('ovb').innerHTML='<div class="tw"><table style="min-width:0">'+
+    '<thead><tr><th>Date</th><th>Prior high</th><th>Close</th><th>Vol x</th></tr></thead><tbody>'+
+    h.slice().reverse().map(function(x){
+      return '<tr><td>'+x.date+(x.thrust?'<span class="tag t-thrust">thrust</span>':'')+'</td>'+
+        '<td>'+n2(x.priorHigh)+'</td><td>'+n2(x.close)+'</td>'+
+        '<td>'+(x.volX==null?'-':x.volX.toFixed(1)+'x')+'</td></tr>';}).join('')+
+    '</tbody></table></div>';
+}
+
+function wire(){
+  document.querySelectorAll('th').forEach(function(t){
+    t.onclick=function(){var k=t.dataset.k;SORT.dir=SORT.k===k?-SORT.dir:-1;SORT.k=k;render();};});
+  document.querySelectorAll('tbody tr[data-sym]').forEach(function(tr){
+    tr.onclick=function(){showHistory(tr.dataset.sym);};});
+}
+
+var NOTE_SCREEN='<b>Click any row</b> to see every date that stock hit a 52-week high.<br><br>'+
+'<b>Backtest, 210 F&amp;O names, Aug 2025 to Aug 2026 (2,461 signals).</b> Buying a 52-week high and holding 126 days returned <b>+3.30%</b> while Nifty fell <b>6.18%</b> - <b>+9.47% excess</b>, beating the index 66% of the time. Volume &gt; 2.5x lifted that to <b>+10.40%</b>, 67% hit rate.<br><br>'+
+'<b>Sizing is equal rupees, not one share each.</b> Signal prices span &#8377;10 to &#8377;48,895, so a fixed share count would let whichever dear stock happened to signal dominate the book.<br><br>'+
+'<b>Limits.</b> Prices are Yahoo, verified identical to Kite across 5 stocks x 9 sessions, but the endpoint is undocumented and can break without notice. A <span class="tag t-ca">split?</span> tag means adjusted and unadjusted closes disagree - a corporate action may be inventing a false breakout, so check by hand. One backtested year, in a falling market, is not proof of an edge.';
+
+var NOTE_PF='<b>Paper only - nothing here was actually traded.</b> One position per stock, taken on its <b>first</b> 52-week high in the window and held to today. Buying every repeat high would stack the same name a dozen times.<br><br>'+
+'<b>Fill assumption:</b> a resting buy at <b>(previous 52-week high &minus; 1)</b>. Where the stock gapped clean over that level the order could not have filled there, so those are filled at the open and tagged <span class="tag t-gap">gapped</span>. <b>{SK}</b> signals were skipped as costing more than one budget.<br><br>'+
+'<b>Peak</b> and <b>Worst</b> are the best and worst closes since entry - the run you would have had to sit through, in both directions. <b>Highs</b> counts how many times that stock has printed a 52-week high in the window; a high count means a persistent trend rather than a one-day pop.<br><br>'+
+'No costs, taxes or slippage are modelled.';
+
+document.querySelectorAll('.view').forEach(function(v){
+  v.onclick=async function(){
+    document.querySelectorAll('.view').forEach(function(x){x.classList.remove('on');});
+    v.classList.add('on'); VIEW=v.dataset.v;
+    document.getElementById('screenCtl').style.display=VIEW==='screen'?'':'none';
+    document.getElementById('pfCtl').style.display=VIEW==='portfolio'?'':'none';
+    SORT=VIEW==='portfolio'?{k:'pnlPct',dir:-1}:{k:'ret63',dir:-1};
+    if(VIEW==='portfolio')await loadPf(); else render();};});
+
+document.getElementById('apply').onclick=function(){VIEW==='portfolio'?loadPf():load();};
 document.getElementById('afford').onchange=render;
 document.getElementById('filter').onchange=render;
+document.getElementById('pfThrust').onchange=loadPf;
+document.getElementById('since').onchange=loadPf;
+document.getElementById('ovcl').onclick=function(){document.getElementById('ov').classList.remove('on');};
+document.getElementById('ov').onclick=function(e){if(e.target.id==='ov')document.getElementById('ov').classList.remove('on');};
 document.getElementById('rescan').onclick=async function(){
-  await fetch('/api/rescan',{method:'POST'});setTimeout(load,800);};
+  var b=document.getElementById('rescan'); b.disabled=true; b.textContent='Refreshing...';
+  await fetch('/api/rescan',{method:'POST'}); setTimeout(load,900);};
 load();
 </script></body></html>

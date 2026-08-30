@@ -7,6 +7,7 @@ const path = require('path');
 const { fnoUnderlyings, toYahoo } = require('./universe');
 const { scan } = require('./yahoo');
 const { analyse, sizePosition } = require('./screen');
+const { highDates, buildPortfolio } = require('./history');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3002;
@@ -14,9 +15,20 @@ const STATE = process.env.STATE_DIR || __dirname;
 const CACHE = path.join(STATE, 'hi52_cache.json');
 
 let state = { status: 'idle', asOf: null, rows: [], failed: [], scannedAt: null, progress: null, error: null };
+let candleStore = {};   // symbol -> { candles }; history and portfolio are derived from this
 
 try {
-  if (fs.existsSync(CACHE)) { state = { ...state, ...JSON.parse(fs.readFileSync(CACHE, 'utf8')), status: 'idle', progress: null }; }
+  if (fs.existsSync(CACHE)) {
+    const c = JSON.parse(fs.readFileSync(CACHE, 'utf8'));
+    if (c.packed) {
+      for (const [s, v] of Object.entries(c.packed)) {
+        candleStore[s] = { corporateAction: v.ca,
+          candles: v.c.map(a => ({ d: a[0], o: a[1], h: a[2], l: a[3], c: a[4], v: a[5] })) };
+      }
+      delete c.packed;
+    }
+    state = { ...state, ...c, status: 'idle', progress: null };
+  }
 } catch (e) { /* a corrupt cache is not worth failing to boot over */ }
 
 const todayIST = () => new Date(Date.now() + 5.5 * 3600e3).toISOString().slice(0, 10);
@@ -33,11 +45,23 @@ async function runScan() {
       const a = analyse(d.candles);
       if (a) rows.push({ symbol: sym, corporateAction: d.corporateAction, ...a });
     }
+    // /api/history and /api/portfolio are derived from these on demand, so nothing about the
+    // 52-week-high log or the paper positions is ever stored as its own record to drift.
+    candleStore = data;
     // Newest breakouts first, then the strongest recent movers.
     rows.sort((a, b) => (b.isThrust - a.isThrust) || (b.isHigh - a.isHigh) || (b.ret63 ?? -99) - (a.ret63 ?? -99));
     state = { status: 'idle', asOf: rows[0]?.date || null, rows, failed,
               scannedAt: new Date().toISOString(), progress: null, error: null };
-    try { fs.writeFileSync(CACHE, JSON.stringify({ asOf: state.asOf, rows, failed, scannedAt: state.scannedAt })); } catch (e) {}
+    // Candles go into the cache too, as bare arrays rather than objects - history and portfolio
+    // are derived from them, and without this a restart serves the screen instantly but leaves
+    // both of those blank until someone triggers a two-minute rescan.
+    try {
+      const packed = {};
+      for (const [s, d] of Object.entries(data)) {
+        packed[s] = { ca: d.corporateAction, c: d.candles.map(x => [x.d, x.o, x.h, x.l, x.c, x.v]) };
+      }
+      fs.writeFileSync(CACHE, JSON.stringify({ asOf: state.asOf, rows, failed, scannedAt: state.scannedAt, packed }));
+    } catch (e) {}
   } catch (e) {
     state.status = 'idle'; state.error = e.message; state.progress = null;
   }
@@ -64,6 +88,28 @@ app.get('/api/screen', (req, res) => {
 });
 
 app.post('/api/rescan', (_q, r) => { runScan(); r.json({ started: true }); });
+
+// Every date a stock printed a 52-week high, oldest first.
+app.get('/api/history', (req, res) => {
+  const sym = String(req.query.symbol || '').toUpperCase();
+  const d = candleStore[sym];
+  if (!d) return res.json({ symbol: sym, available: false, hits: [],
+    note: candleStore && Object.keys(candleStore).length ? 'unknown symbol' : 'no scan in memory yet - rescan first' });
+  res.json({ symbol: sym, available: true, hits: highDates(d.candles) });
+});
+
+// Paper portfolio: one position per stock on its FIRST 52-week high in the window, filled at
+// (previous 52-week high - 1). Derived live, never stored.
+app.get('/api/portfolio', (req, res) => {
+  if (!Object.keys(candleStore).length) {
+    return res.json({ available: false, note: 'no scan in memory yet - hit Refresh' });
+  }
+  const budget = Number(req.query.budget) || 2000;
+  const since = req.query.since || null;
+  const thrustOnly = req.query.thrust === '1';
+  const p = buildPortfolio(candleStore, budget, { since, thrustOnly });
+  res.json({ available: true, budget, since, thrustOnly, asOf: state.asOf, ...p });
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_q, r) => r.sendFile(path.join(__dirname, 'public', 'index.html')));
